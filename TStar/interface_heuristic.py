@@ -1,8 +1,9 @@
 import os.path as osp
-from mmengine.config import Config
-from mmengine.dataset import Compose
-from mmdet.apis import init_detector # only for yoloworld interface
-from torch.amp import autocast
+from importlib import import_module
+# from mmengine.config import Config
+# from mmengine.dataset import Compose
+# from mmdet.apis import init_detector # only for yoloworld interface
+# from torch.amp import autocast
 import torch
 import supervision as sv
 from typing import List
@@ -46,6 +47,19 @@ class YoloWorldInterface(HeuristicInterface):
             checkpoint_path (str): Path to the model checkpoint.
             device (str): Device to run the model on (e.g., 'cuda:0', 'cpu').
         """
+        try:
+            mmengine_config = import_module("mmengine.config")
+            mmengine_dataset = import_module("mmengine.dataset")
+            mmdet_apis = import_module("mmdet.apis")
+            torch = import_module("torch")
+        except Exception as e:
+            raise ImportError("YOLO-World backend requires `pip install -e .[yolo]`.") from e
+
+        Config = getattr(mmengine_config, "Config")
+        Compose = getattr(mmengine_dataset, "Compose")
+        init_detector = getattr(mmdet_apis, "init_detector")
+        self._torch = torch
+        
         self.config_path = config_path
         self.checkpoint_path = checkpoint_path
         self.device = device
@@ -113,7 +127,9 @@ class YoloWorldInterface(HeuristicInterface):
                           data_samples=[data_info['data_samples']])
 
         # Run inference
-        with autocast(enabled=use_amp), torch.no_grad():
+        # with autocast(enabled=use_amp), torch.no_grad():
+        torch = self._torch
+        with torch.amp.autocast(enabled=use_amp), torch.no_grad():  
             output = self.model.test_step(data_batch)[0]
             pred_instances = output.pred_instances
             pred_instances = pred_instances[pred_instances.scores.float() > score_threshold]
@@ -134,6 +150,8 @@ class YoloWorldInterface(HeuristicInterface):
         return detections
     
     def inference_detector(self, images, max_dets=50, score_threshold=0.12, use_amp: bool = False):
+        torch = self._torch
+
         data_info = dict(img_id=0, img=images[0], texts=self.texts) #TBD for batch searching
         data_info = self.test_pipeline(data_info)
         data_batch = dict(inputs=data_info['inputs'].unsqueeze(0),
@@ -277,7 +295,8 @@ class OWLInterface(HeuristicInterface):
         combined_texts = target_objects + cue_objects
 
         # Format the text prompts for the YOLO model
-        self.texts = [[obj.strip()] for obj in combined_texts] + [[' ']]
+        self.texts = [obj.strip() for obj in combined_texts if obj.strip()]
+
 
 
         

@@ -8,7 +8,7 @@ from scipy.interpolate import UnivariateSpline
 from tqdm import tqdm
 
 # Import the YOLO interface and HeuristicInterface from TStar package
-from TStar.interface_heuristic import YoloWorldInterface, HeuristicInterface
+from .interface_heuristic import YoloWorldInterface, HeuristicInterface
 
 
 class TStarSearcher:

@@ -6,48 +6,49 @@ import re
 # It is assumed that TStar.utilites defines the following functions:
 # - encode_image_to_base64: converts a PIL.Image to a base64 string.
 # - load_video_frames: loads a specified number of frames from a video.
-from TStar.utilites import encode_image_to_base64, load_video_frames
+from .utilites import encode_image_to_base64, load_video_frames
 
 
-class LlavaInterface:
-    """
-    Example: Encapsulate inference calls for the Llava model.
-    The key is to expose a unified method inference(query, frames, **kwargs).
-    """
-    def __init__(self, model_path: str, model_base: Optional[str] = None):
-        # Load the Llava model logic should be implemented here.
-        self.model_path = model_path
-        self.model_base = model_base
-        print(f"[LlavaInterface] model_path={model_path}, model_base={model_base}")
+# class LlavaInterface:
+#     """
+#     Example: Encapsulate inference calls for the Llava model.
+#     The key is to expose a unified method inference(query, frames, **kwargs).
+#     """
+#     def __init__(self, model_path: str, model_base: Optional[str] = None):
+#         # Load the Llava model logic should be implemented here.
+#         self.model_path = model_path
+#         self.model_base = model_base
+#         print(f"[LlavaInterface] model_path={model_path}, model_base={model_base}")
 
-    def inference(
-        self,
-        query: str,
-        frames: Optional[List[Image.Image]] = None,
-        **kwargs
-    ) -> str:
-        """
-        Expose a unified inference interface.
+#     def inference(
+#         self,
+#         query: str,
+#         frames: Optional[List[Image.Image]] = None,
+#         **kwargs
+#     ) -> str:
+#         """
+#         Expose a unified inference interface.
         
-        Args:
-            query: User input, which may contain text and <image> tags.
-            frames: List of corresponding image frames.
-            system_message: System prompt.
-            temperature, top_p, num_beams, max_tokens: Other inference parameters.
+#         Args:
+#             query: User input, which may contain text and <image> tags.
+#             frames: List of corresponding image frames.
+#             system_message: System prompt.
+#             temperature, top_p, num_beams, max_tokens: Other inference parameters.
         
-        Returns:
-            A string containing the inference result.
-        """
-        print("[LlavaInterface] Inference called with query:", query)
-        print("[LlavaInterface] frames count:", len(frames) if frames else 0)
-        # In a real scenario, call the Llava model for inference.
-        return "Fake Response from LlavaInterface"
+#         Returns:
+#             A string containing the inference result.
+#         """
+#         print("[LlavaInterface] Inference called with query:", query)
+#         print("[LlavaInterface] frames count:", len(frames) if frames else 0)
+#         # In a real scenario, call the Llava model for inference.
+#         return "Fake Response from LlavaInterface"
 
 from typing import List, Optional
-import torch
+# import torch
 from PIL import Image
-from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
-from qwen_vl_utils import process_vision_info
+# from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
+# from qwen_vl_utils import process_vision_info
+from importlib import import_module
 
 class QwenInterface:
     def __init__(
@@ -59,9 +60,19 @@ class QwenInterface:
         Initialize Qwen model and processor.
         """
         
-        self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-            model_name, torch_dtype="auto", device_map="auto"
-        )
+        try:
+            transformers = import_module("transformers")
+        except Exception as e:
+            raise ImportError("Qwen backend requires transformers. Install with `pip install -e .[qwen]`.") from e
+        try:
+            import_module("torch")
+        except Exception as e:
+            raise ImportError("Qwen backend requires torch. Install CUDA/CPU torch that matches your system.") from e
+        QwenVL = getattr(transformers, "Qwen2_5_VLForConditionalGeneration", None)
+        AutoProcessor = getattr(transformers, "AutoProcessor", None)
+        if QwenVL is None or AutoProcessor is None:
+            raise ImportError("Transformers lacks Qwen2_5_VL.../AutoProcessor. Try a newer transformers.")
+        self.model = QwenVL.from_pretrained(model_name, torch_dtype="auto", device_map="auto")
         self.device = self.model.device
         self.processor = AutoProcessor.from_pretrained(model_name)
 
@@ -339,11 +350,11 @@ class TStarUniversalGrounder:
     ):
         self.backend = model_name.lower()
         self.num_frames = num_frames
-        if "llava" in self.backend:
-            if not model_path:
-                raise ValueError("Please provide model_path for LlavaInterface")
-            self.VLM_model_interface = LlavaInterface(model_path=model_path, model_base=model_base)
-        elif "qwen" in self.backend:
+        # if "llava" in self.backend:
+        #     if not model_path:
+        #         raise ValueError("Please provide model_path for LlavaInterface")
+        #     self.VLM_model_interface = LlavaInterface(model_path=model_path, model_base=model_base)
+        if "qwen" in self.backend:
             # Initialize QwenInterface if 'qwen' is specified in the backend.
             self.VLM_model_interface = QwenInterface(model_name=model_name, device="auto")
         elif "gpt" in self.backend:
@@ -376,7 +387,7 @@ class TStarUniversalGrounder:
             "\nHere is a question about the video:\n" +
             f"Question: {question}\n"
         )
-        if len(options) > 1:
+        if options:
             system_prompt += f"Options: {options}\n"
         system_prompt += (
             "\nWhen answering this question about the video:\n"

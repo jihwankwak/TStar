@@ -4,10 +4,10 @@ import cv2
 import logging
 import numpy as np
 from typing import List, Tuple
-from TStar.interface_grounding import TStarUniversalGrounder
-from TStar.interface_heuristic import YoloWorldInterface, OWLInterface, HeuristicInterface
-from TStar.interface_searcher import TStarSearcher
-from TStar.utilites import save_as_gif
+from .interface_grounding import TStarUniversalGrounder
+from .interface_heuristic import YoloWorldInterface, OWLInterface, HeuristicInterface
+from .interface_searcher import TStarSearcher
+from .utilites import save_as_gif
 
 
 # Configure logging
