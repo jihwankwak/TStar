@@ -1,6 +1,6 @@
 import os
 from typing import Dict, Optional, List
-import openai
+# import openai
 from PIL import Image
 import re
 # It is assumed that TStar.utilites defines the following functions:
